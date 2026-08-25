@@ -45,8 +45,11 @@ export function invalidInput(message: string): StartggError {
 /** Coerce any thrown value into a StartggError without leaking internals. */
 export function toStartggError(err: unknown): StartggError {
   if (err instanceof StartggError) return err;
-  if (err instanceof Error) {
-    return new StartggError("INTERNAL_ERROR", `Unexpected error: ${err.message}`);
-  }
-  return new StartggError("INTERNAL_ERROR", "Unexpected non-Error value was thrown.");
+  // Unknown exceptions may carry file paths, stack fragments, or other
+  // internals in their message, so only a fixed generic message is exposed.
+  return new StartggError(
+    "INTERNAL_ERROR",
+    "The MCP server hit an unexpected internal error. This is a bug in startgg-mcp-server; " +
+      "please report it at https://github.com/tomo789/startgg-mcp-server/issues.",
+  );
 }

@@ -167,7 +167,9 @@ export function registerDiscoveryTools(server: McpServer, ctx: ToolContext): voi
       annotations: { readOnlyHint: true },
     },
     wrapHandler(async (args) => {
-      const nowSec = Math.floor(Date.now() / 1000);
+      // Floor "now" to the minute: the computed beforeDate lands in the cache
+      // key, and a per-second timestamp would defeat the 60s search cache.
+      const nowSec = Math.floor(Date.now() / 60_000) * 60;
       const filter = buildTournamentFilter({ ...args, upcoming: true });
       filter.beforeDate = nowSec + (args.withinDays ?? 30) * 86400;
       return searchTournaments(ctx, {
