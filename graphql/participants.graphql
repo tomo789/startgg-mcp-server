@@ -1,0 +1,27 @@
+query GetTournamentParticipants($id: ID, $slug: String, $page: Int, $perPage: Int, $gamerTag: String) {
+  tournament(id: $id, slug: $slug) {
+    id
+    name
+    slug
+    participants(query: { page: $page, perPage: $perPage, filter: { gamerTag: $gamerTag } }) {
+      pageInfo {
+        page
+        perPage
+        total
+        totalPages
+      }
+      nodes {
+        id
+        gamerTag
+        prefix
+        player {
+          id
+        }
+        user {
+          id
+          slug
+        }
+      }
+    }
+  }
+}

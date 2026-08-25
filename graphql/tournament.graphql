@@ -1,0 +1,75 @@
+query GetTournament($id: ID, $slug: String) {
+  tournament(id: $id, slug: $slug) {
+    id
+    name
+    slug
+    shortSlug
+    city
+    countryCode
+    addrState
+    postalCode
+    venueName
+    venueAddress
+    timezone
+    startAt
+    endAt
+    numAttendees
+    isOnline
+    hasOfflineEvents
+    hasOnlineEvents
+    isRegistrationOpen
+    registrationClosesAt
+    rules
+    url
+    links {
+      facebook
+      discord
+    }
+    events {
+      id
+      name
+      slug
+      startAt
+      state
+      numEntrants
+      isOnline
+      videogame {
+        id
+        name
+        displayName
+      }
+    }
+    streams {
+      id
+      streamSource
+      streamName
+      streamGame
+      streamStatus
+      isOnline
+      enabled
+    }
+  }
+}
+
+query GetTournamentEvents($id: ID, $slug: String, $filter: EventFilter) {
+  tournament(id: $id, slug: $slug) {
+    id
+    name
+    slug
+    events(filter: $filter) {
+      id
+      name
+      slug
+      startAt
+      state
+      numEntrants
+      isOnline
+      type
+      videogame {
+        id
+        name
+        displayName
+      }
+    }
+  }
+}

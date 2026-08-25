@@ -1,0 +1,20 @@
+query ResolveTournament($slug: String!) {
+  tournament(slug: $slug) {
+    id
+    name
+    slug
+  }
+}
+
+query ResolveEvent($slug: String!) {
+  event(slug: $slug) {
+    id
+    name
+    slug
+    tournament {
+      id
+      name
+      slug
+    }
+  }
+}

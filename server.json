@@ -1,0 +1,36 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.tomo789/startgg-mcp-server",
+  "description": "MCP server for the start.gg GraphQL API: tournaments, events, entrants, sets, standings, streams",
+  "title": "start.gg MCP Server",
+  "repository": {
+    "url": "https://github.com/tomo789/startgg-mcp-server",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "startgg-mcp-server",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "STARTGG_TOKEN",
+          "description": "start.gg API token (create at https://start.gg/admin/profile/developer)",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "STARTGG_ENABLE_WRITES",
+          "description": "Reserved flag for future write (mutation) tools; keep false",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

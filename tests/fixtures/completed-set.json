@@ -1,0 +1,115 @@
+{
+  "comment": "Real shapes captured from the live start.gg API on 2026-08-24 (public bracket data).",
+  "completedSet": {
+    "id": 106877974,
+    "identifier": "D",
+    "round": 3,
+    "fullRoundText": "Grand Final",
+    "state": 3,
+    "startedAt": 1787549991,
+    "completedAt": 1787551174,
+    "winnerId": 24481002,
+    "displayScore": "LittleMacMain 2 - RenSuø 3",
+    "totalGames": 5,
+    "vodUrl": null,
+    "phaseGroup": {
+      "id": 2288997,
+      "displayIdentifier": "A",
+      "phase": { "id": 1994001, "name": "Bracket" }
+    },
+    "slots": [
+      {
+        "slotIndex": 0,
+        "entrant": {
+          "id": 24480092,
+          "name": "LittleMacMain",
+          "initialSeedNum": 5,
+          "isDisqualified": false,
+          "participants": [
+            { "player": { "id": 3655189, "gamerTag": "LittleMacMain", "prefix": "" } }
+          ]
+        },
+        "standing": {
+          "placement": 2,
+          "stats": { "score": { "label": "Score", "value": 2, "displayValue": "2" } }
+        }
+      },
+      {
+        "slotIndex": 1,
+        "entrant": {
+          "id": 24481002,
+          "name": "RenSuø",
+          "initialSeedNum": 2,
+          "isDisqualified": false,
+          "participants": [{ "player": { "id": 4446519, "gamerTag": "RenSuø", "prefix": null } }]
+        },
+        "standing": {
+          "placement": 1,
+          "stats": { "score": { "label": "Score", "value": 3, "displayValue": "3" } }
+        }
+      }
+    ]
+  },
+  "previewSet": {
+    "id": "preview_3430499_2_0",
+    "identifier": null,
+    "round": 1,
+    "fullRoundText": "Winners Round 1",
+    "state": 1,
+    "startedAt": null,
+    "completedAt": null,
+    "winnerId": null,
+    "displayScore": null,
+    "totalGames": null,
+    "vodUrl": null,
+    "phaseGroup": null,
+    "slots": [
+      { "slotIndex": 0, "entrant": null, "standing": null },
+      { "slotIndex": 1, "entrant": null, "standing": null }
+    ]
+  },
+  "dqSet": {
+    "id": 900000001,
+    "identifier": "Z",
+    "round": -2,
+    "fullRoundText": "Losers Round 2",
+    "state": 3,
+    "startedAt": 1787549000,
+    "completedAt": 1787549100,
+    "winnerId": 111,
+    "displayScore": "DQ",
+    "totalGames": 5,
+    "vodUrl": null,
+    "phaseGroup": null,
+    "slots": [
+      {
+        "slotIndex": 0,
+        "entrant": {
+          "id": 111,
+          "name": "Winner By DQ",
+          "initialSeedNum": 10,
+          "isDisqualified": false,
+          "participants": [{ "player": { "id": 1, "gamerTag": "Winner By DQ", "prefix": null } }]
+        },
+        "standing": {
+          "placement": 1,
+          "stats": { "score": { "label": "Score", "value": 0, "displayValue": "0" } }
+        }
+      },
+      {
+        "slotIndex": 1,
+        "entrant": {
+          "id": 222,
+          "name": "No Show",
+          "initialSeedNum": 3,
+          "isDisqualified": true,
+          "participants": [{ "player": { "id": 2, "gamerTag": "No Show", "prefix": null } }]
+        },
+        "standing": {
+          "placement": 2,
+          "stats": { "score": { "label": "Score", "value": -1, "displayValue": "-1" } }
+        }
+      }
+    ]
+  }
+}

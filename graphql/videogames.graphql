@@ -1,0 +1,16 @@
+query SearchVideogames($page: Int, $perPage: Int, $name: String) {
+  videogames(query: { page: $page, perPage: $perPage, filter: { name: $name } }) {
+    pageInfo {
+      page
+      perPage
+      total
+      totalPages
+    }
+    nodes {
+      id
+      name
+      displayName
+      slug
+    }
+  }
+}

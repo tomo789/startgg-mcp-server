@@ -1,0 +1,65 @@
+{
+  "name": "startgg-mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for the start.gg GraphQL API — tournament discovery, events, entrants, sets, standings, and streams for any game on start.gg",
+  "type": "module",
+  "license": "MIT",
+  "mcpName": "io.github.tomo789/startgg-mcp-server",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tomo789/startgg-mcp-server.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "startgg-mcp-server": "dist/cli.js"
+  },
+  "main": "dist/server.js",
+  "files": [
+    "dist",
+    "graphql",
+    "README.md",
+    "LICENSE",
+    "server.json"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "startgg",
+    "start.gg",
+    "smashgg",
+    "esports",
+    "tournament",
+    "graphql"
+  ],
+  "scripts": {
+    "prebuild": "node scripts/clean-dist.mjs",
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "example:smash": "node examples/smash-ultimate-watcher/watch.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.2.0",
+    "eslint": "^10.9.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.6",
+    "tsx": "^4.23.12",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.67.0",
+    "vitest": "^4.1.11"
+  }
+}

@@ -1,0 +1,77 @@
+query GetPlayer($id: ID!) {
+  player(id: $id) {
+    id
+    gamerTag
+    prefix
+    user {
+      id
+      slug
+      name
+    }
+  }
+}
+
+query GetPlayerSets($id: ID!, $page: Int, $perPage: Int, $filters: SetFilters) {
+  player(id: $id) {
+    id
+    gamerTag
+    prefix
+    sets(page: $page, perPage: $perPage, filters: $filters) {
+      pageInfo {
+        page
+        perPage
+        total
+        totalPages
+      }
+      nodes {
+        id
+        identifier
+        round
+        fullRoundText
+        state
+        startedAt
+        completedAt
+        winnerId
+        displayScore
+        totalGames
+        vodUrl
+        event {
+          id
+          name
+          slug
+          tournament {
+            id
+            name
+            slug
+          }
+        }
+        slots {
+          slotIndex
+          entrant {
+            id
+            name
+            initialSeedNum
+            isDisqualified
+            participants {
+              player {
+                id
+                gamerTag
+                prefix
+              }
+            }
+          }
+          standing {
+            placement
+            stats {
+              score {
+                label
+                value
+                displayValue
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

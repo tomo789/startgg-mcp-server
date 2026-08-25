@@ -1,0 +1,31 @@
+query GetEvent($id: ID, $slug: String) {
+  event(id: $id, slug: $slug) {
+    id
+    name
+    slug
+    startAt
+    state
+    numEntrants
+    isOnline
+    type
+    videogame {
+      id
+      name
+      displayName
+    }
+    tournament {
+      id
+      name
+      slug
+      timezone
+    }
+    phases {
+      id
+      name
+      numSeeds
+      phaseOrder
+      bracketType
+      state
+    }
+  }
+}

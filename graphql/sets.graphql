@@ -1,0 +1,69 @@
+query GetEventSets(
+  $id: ID
+  $slug: String
+  $page: Int
+  $perPage: Int
+  $sortType: SetSortType
+  $filters: SetFilters
+) {
+  event(id: $id, slug: $slug) {
+    id
+    name
+    slug
+    sets(page: $page, perPage: $perPage, sortType: $sortType, filters: $filters) {
+      pageInfo {
+        page
+        perPage
+        total
+        totalPages
+      }
+      nodes {
+        id
+        identifier
+        round
+        fullRoundText
+        state
+        startedAt
+        completedAt
+        winnerId
+        displayScore
+        totalGames
+        vodUrl
+        phaseGroup {
+          id
+          displayIdentifier
+          phase {
+            id
+            name
+          }
+        }
+        slots {
+          slotIndex
+          entrant {
+            id
+            name
+            initialSeedNum
+            isDisqualified
+            participants {
+              player {
+                id
+                gamerTag
+                prefix
+              }
+            }
+          }
+          standing {
+            placement
+            stats {
+              score {
+                label
+                value
+                displayValue
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

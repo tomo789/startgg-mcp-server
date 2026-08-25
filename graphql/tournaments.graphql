@@ -1,0 +1,30 @@
+query SearchTournaments($page: Int, $perPage: Int, $sortBy: String, $filter: TournamentPageFilter) {
+  tournaments(query: { page: $page, perPage: $perPage, sortBy: $sortBy, filter: $filter }) {
+    pageInfo {
+      page
+      perPage
+      total
+      totalPages
+    }
+    nodes {
+      id
+      name
+      slug
+      shortSlug
+      city
+      countryCode
+      addrState
+      venueName
+      timezone
+      startAt
+      endAt
+      numAttendees
+      isOnline
+      hasOfflineEvents
+      hasOnlineEvents
+      isRegistrationOpen
+      registrationClosesAt
+      url
+    }
+  }
+}

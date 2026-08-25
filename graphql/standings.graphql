@@ -1,0 +1,31 @@
+query GetEventStandings($id: ID, $slug: String, $page: Int, $perPage: Int) {
+  event(id: $id, slug: $slug) {
+    id
+    name
+    slug
+    standings(query: { page: $page, perPage: $perPage }) {
+      pageInfo {
+        page
+        perPage
+        total
+        totalPages
+      }
+      nodes {
+        placement
+        isFinal
+        entrant {
+          id
+          name
+          initialSeedNum
+          participants {
+            player {
+              id
+              gamerTag
+              prefix
+            }
+          }
+        }
+      }
+    }
+  }
+}
