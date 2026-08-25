@@ -10,7 +10,7 @@
     "url": "git+https://github.com/tomo789/startgg-mcp-server.git"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "bin": {
     "startgg-mcp-server": "dist/cli.js"

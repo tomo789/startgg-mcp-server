@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -195,17 +195,20 @@ describe("MCP tool surface", () => {
     expect(seen[0]!.variables).toMatchObject({ id: 1, filters: { state: [3] } });
   });
 
-  it("get_stream_queue resolves slugs to a tournament id first", async () => {
+  it("get_stream_queue fetches queue and tournament in one request for URL locators", async () => {
     const { connect, seen } = makeConnectedPair({
-      ResolveTournament: { tournament: { id: 999, name: "Weekly", slug: "tournament/weekly" } },
       GetStreamQueue: {
-        streamQueue: [
-          {
-            id: "q1",
-            stream: { id: 5, streamSource: "TWITCH", streamName: "chan" },
-            sets: [],
-          },
-        ],
+        tournament: {
+          id: 999,
+          name: "Weekly",
+          streamQueue: [
+            {
+              id: "q1",
+              stream: { id: 5, streamSource: "TWITCH", streamName: "chan" },
+              sets: [],
+            },
+          ],
+        },
       },
     });
     const client = await connect();
@@ -214,9 +217,62 @@ describe("MCP tool surface", () => {
       arguments: { url: "https://www.start.gg/tournament/weekly/details" },
     });
     const payload = parsePayload(result);
+    expect(payload.tournament).toEqual({ id: 999, name: "Weekly" });
     expect(payload.streamQueues[0].stream.derivedUrl).toBe("https://www.twitch.tv/chan");
-    expect(seen.map((s) => s.operationName)).toEqual(["ResolveTournament", "GetStreamQueue"]);
-    expect(seen[1]!.variables).toEqual({ tournamentId: 999 });
+    expect(seen.map((s) => s.operationName)).toEqual(["GetStreamQueue"]);
+    expect(seen[0]!.variables).toEqual({ slug: "weekly" });
+  });
+
+  it("get_stream_queue surfaces NOT_FOUND for a numeric id that does not exist", async () => {
+    const { connect, seen } = makeConnectedPair({ GetStreamQueue: { tournament: null } });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_stream_queue",
+      arguments: { tournamentId: 424242 },
+    });
+    expect(result.isError).toBe(true);
+    expect(parsePayload(result).error.code).toBe("NOT_FOUND");
+    expect(seen.map((s) => s.operationName)).toEqual(["GetStreamQueue"]);
+    expect(seen[0]!.variables).toEqual({ id: 424242 });
+  });
+
+  it("get_stream_queue treats a null streamQueue on an existing tournament as empty", async () => {
+    const { connect } = makeConnectedPair({
+      GetStreamQueue: { tournament: { id: 77, name: "Quiet Weekly", streamQueue: null } },
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_stream_queue",
+      arguments: { tournamentId: 77 },
+    });
+    expect(result.isError).toBeFalsy();
+    const payload = parsePayload(result);
+    expect(payload.tournament).toEqual({ id: 77, name: "Quiet Weekly" });
+    expect(payload.streamQueues).toEqual([]);
+  });
+
+  it("get_upcoming_tournaments reuses the cache for same-minute calls", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-08-25T12:00:05Z"));
+      const { connect, seen } = makeConnectedPair({
+        SearchTournaments: {
+          tournaments: { pageInfo: { page: 1, perPage: 25, total: 0, totalPages: 0 }, nodes: [] },
+        },
+      });
+      const client = await connect();
+      await client.callTool({ name: "get_upcoming_tournaments", arguments: { videogameId: 1386 } });
+      // Same minute, different second: beforeDate must floor to the same value
+      // so the second call is served from the 60s search cache.
+      vi.setSystemTime(new Date("2026-08-25T12:00:47Z"));
+      await client.callTool({ name: "get_upcoming_tournaments", arguments: { videogameId: 1386 } });
+      expect(seen).toHaveLength(1);
+      const filter = seen[0]!.variables.filter as { beforeDate: number };
+      const minuteFloor = Math.floor(Date.parse("2026-08-25T12:00:00Z") / 1000);
+      expect(filter.beforeDate).toBe(minuteFloor + 30 * 86400);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("surfaces NOT_FOUND for missing tournaments", async () => {
