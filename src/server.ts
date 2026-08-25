@@ -14,7 +14,7 @@ export const SERVER_VERSION = "0.1.0";
  * executable entry point lives in cli.ts.
  */
 export function createServer(env: NodeJS.ProcessEnv = process.env): McpServer {
-  const config = loadConfig(env);
+  const config = loadConfig(env, (m) => console.error(`[startgg-mcp-server] ${m}`));
 
   const client = new StartggClient({
     token: config.token,
