@@ -36,6 +36,27 @@ describe("fetchAllPages", () => {
     expect(pageInfo.truncated).toBe(false);
   });
 
+  it("flags truncation when the cap is hit and totalPages is unknown", async () => {
+    // start.gg's PageInfo.totalPages is nullable; without it the cap must still be reported.
+    const getPage = async (page: number) => ({
+      pageInfo: { page, perPage: 2, total: null, totalPages: null },
+      nodes: [page * 10, page * 10 + 1],
+    });
+    const { nodes, pageInfo } = await fetchAllPages(getPage, 2, 3);
+    expect(nodes).toHaveLength(6);
+    expect(pageInfo).toMatchObject({ totalPages: null, fetchedPages: 3, truncated: true });
+  });
+
+  it("does not flag truncation when data runs out before the cap", async () => {
+    const getPage = async (page: number) => ({
+      pageInfo: { page, perPage: 2, total: null, totalPages: null },
+      nodes: page <= 2 ? [page] : [],
+    });
+    const { nodes, pageInfo } = await fetchAllPages(getPage, 2, 10);
+    expect(nodes).toHaveLength(2);
+    expect(pageInfo.truncated).toBe(false);
+  });
+
   it("stops on an empty batch when totalPages is unknown", async () => {
     let calls = 0;
     const getPage = async (_page: number) => {

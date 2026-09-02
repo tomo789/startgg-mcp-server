@@ -58,6 +58,30 @@ describe("loadConfig", () => {
     expect(loadConfig({ STARTGG_TIMEOUT_MS: "300001" }).timeoutMs).toBe(30_000);
   });
 
+  it("warns once when STARTGG_RATE_LIMIT is out of range", () => {
+    const warn = vi.fn();
+    loadConfig({ STARTGG_RATE_LIMIT: "81" }, warn);
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("STARTGG_RATE_LIMIT"));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("75"));
+  });
+
+  it("warns when STARTGG_TIMEOUT_MS is not numeric", () => {
+    const warn = vi.fn();
+    loadConfig({ STARTGG_TIMEOUT_MS: "abc" }, warn);
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("does not warn for a valid value or an absent value", () => {
+    const warnValid = vi.fn();
+    loadConfig({ STARTGG_RATE_LIMIT: "7" }, warnValid);
+    expect(warnValid).not.toHaveBeenCalled();
+
+    const warnAbsent = vi.fn();
+    loadConfig({}, warnAbsent);
+    expect(warnAbsent).not.toHaveBeenCalled();
+  });
+
   it("treats a whitespace-only token as unset", () => {
     expect(loadConfig({ STARTGG_TOKEN: "   " }).token).toBeUndefined();
   });
