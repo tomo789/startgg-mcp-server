@@ -22,17 +22,18 @@ belongs in applications built on top — see
 
 ## Features
 
-- 15 read-only tools covering discovery, tournaments, events, players, streams, and URL resolution
+- 16 read-only tools covering discovery, tournaments, events, players, streams, and URL resolution
 - Input validation (Zod) on every tool — bad ids, oversized page sizes, and malformed URLs never reach the API
 - Sliding-window rate limiter (default 75 req/60s vs start.gg's 80), retries with exponential backoff, and `Retry-After` support
 - Short-TTL in-memory cache for metadata queries
 - Typed error codes: `AUTH_ERROR`, `RATE_LIMITED`, `NOT_FOUND`, `INVALID_INPUT`, `STARTGG_GRAPHQL_ERROR`, `NETWORK_ERROR`, `INTERNAL_ERROR`
 - GraphQL documents kept in [`graphql/`](graphql/) files, separate from code
 - The API token never appears in output, logs, or error messages
+- Compact JSON output (no pretty-printing) to keep tool results small
 
 ## Requirements
 
-- Node.js >= 20
+- Node.js >= 22
 - A start.gg API token
 
 ## Getting a start.gg API token
@@ -127,12 +128,13 @@ with `STARTGG_TOKEN` set.
 
 ### Event
 
-| Tool                  | Purpose                                                                |
-| --------------------- | ---------------------------------------------------------------------- |
-| `get_event`           | Event details including phases (Pools, Top 8, ...) with phase ids      |
-| `get_event_entrants`  | Entrants with seed, players, DQ flag; pagination or `fetchAll`         |
-| `get_event_standings` | Placements (use `perPage: 8` for Top 8)                                |
-| `get_event_sets`      | Normalized sets; filter by state, phase, round, entrants, VOD presence |
+| Tool                  | Purpose                                                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `get_event`           | Event details including phases (Pools, Top 8, ...) with phase ids                                                         |
+| `get_event_entrants`  | Entrants with seed, players, DQ flag; pagination or `fetchAll`                                                            |
+| `get_event_standings` | Placements (use `perPage: 8` for Top 8)                                                                                   |
+| `get_event_sets`      | Normalized sets with `stream`; filter by state, phase, round, entrants, players, VOD; `includeGames` for per-game details |
+| `get_set_games`       | Per-game stage / winner / character picks for one set; see coverage note                                                  |
 
 ### Player
 
@@ -148,8 +150,9 @@ with `STARTGG_TOKEN` set.
 | `resolve_startgg_url` | start.gg URL/slug → `{ type, tournamentId, eventId, slugs, names }` |
 
 Tournament/event tools accept **either** a numeric id, a slug, or a full
-start.gg URL — you rarely need `resolve_startgg_url` explicitly, but it is
-there when you want the ids.
+start.gg URL. Scheme-less URLs (`start.gg/tournament/...`) and `<t>/event/<e>`
+slugs are accepted too — you rarely need `resolve_startgg_url` explicitly, but
+it is there when you want the ids.
 
 ### Normalized set shape
 
@@ -183,6 +186,30 @@ Notes grounded in the live API:
 - unstarted "preview" sets have **string** ids like `"preview_3430499_2_0"`
 - `state` names are decoded from the integer `stateRaw`; both are always returned
 - `entrant1`/`entrant2` use a `players` array, so doubles/teams work unchanged
+
+### Games and characters
+
+`get_set_games` (and `get_event_sets` with `includeGames: true`) add per-game
+details when start.gg has them:
+
+```json
+{
+  "orderNum": 1,
+  "winnerEntrantId": 24480092,
+  "stage": { "id": 484, "name": "Small Battlefield" },
+  "selections": [{ "entrantId": 24481002, "character": { "id": 1846, "name": "Kazuya" } }]
+}
+```
+
+`derivedCharacters` summarizes unique character names per entrant in
+first-appearance order across games. This is derived, not an API field.
+
+Character and stage data only exists when the set was reported with it. In a
+2026-09 sample, late rounds (Top 8 / streamed) had it on about 90% of completed
+sets; early pools about 5%. An empty `games` array means not reported, not that
+no games were played. Typical flow: `get_event_sets` (e.g. `phaseIds` for Top 8)
+→ pick set ids → `get_set_games`. For many sets at once, `get_event_sets` with
+`includeGames: true`.
 
 ## Examples
 
@@ -240,7 +267,7 @@ request**. This server:
 - keeps a sliding-window budget below the request limit (default 75/60s)
 - retries `429` (honoring `Retry-After`) and transient 5xx errors with exponential backoff, at most 3 retries — GraphQL errors are never retried
 - caps `perPage` per tool so responses stay under the 1000-object complexity limit (sets are expensive: ~26+ objects each, hence `perPage <= 30`)
-- caps `fetchAll` at a fixed page budget and reports `truncated: true` when it stops early
+- caps `fetchAll` at 5 pages per tool (output is meant for an LLM context, so it stays around 100 KB of compact JSON) and reports `truncated: true` when it stops early
 
 ## Development
 

@@ -1,57 +1,61 @@
-query GetStreamQueue($tournamentId: ID!) {
-  streamQueue(tournamentId: $tournamentId) {
+query GetStreamQueue($id: ID, $slug: String) {
+  tournament(id: $id, slug: $slug) {
     id
-    stream {
+    name
+    streamQueue {
       id
-      streamSource
-      streamName
-      streamGame
-      streamStatus
-      isOnline
-      enabled
-    }
-    sets {
-      id
-      identifier
-      round
-      fullRoundText
-      state
-      startedAt
-      completedAt
-      winnerId
-      displayScore
-      totalGames
-      vodUrl
-      phaseGroup {
+      stream {
         id
-        displayIdentifier
-        phase {
-          id
-          name
-        }
+        streamSource
+        streamName
+        streamGame
+        streamStatus
+        isOnline
+        enabled
       }
-      slots {
-        slotIndex
-        entrant {
+      sets {
+        id
+        identifier
+        round
+        fullRoundText
+        state
+        startedAt
+        completedAt
+        winnerId
+        displayScore
+        totalGames
+        vodUrl
+        phaseGroup {
           id
-          name
-          initialSeedNum
-          isDisqualified
-          participants {
-            player {
-              id
-              gamerTag
-              prefix
-            }
+          displayIdentifier
+          phase {
+            id
+            name
           }
         }
-        standing {
-          placement
-          stats {
-            score {
-              label
-              value
-              displayValue
+        slots {
+          slotIndex
+          entrant {
+            id
+            name
+            initialSeedNum
+            isDisqualified
+            participants {
+              player {
+                id
+                gamerTag
+                prefix
+              }
+            }
+          }
+          standing {
+            placement
+            stats {
+              score {
+                label
+                value
+                displayValue
+              }
             }
           }
         }

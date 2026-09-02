@@ -10,7 +10,14 @@ import {
   normalizeStanding,
 } from "../startgg/normalize.js";
 import * as s from "../schemas/common.js";
-import { TTL, eventLocator, fetchAllPages, wrapHandler, type ToolContext } from "./shared.js";
+import {
+  FETCH_ALL_MAX_PAGES,
+  TTL,
+  eventLocator,
+  fetchAllPages,
+  wrapHandler,
+  type ToolContext,
+} from "./shared.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -26,7 +33,9 @@ function describeLocator(vars: { id?: number; slug?: string }): string {
 const FETCH_ALL = z
   .boolean()
   .optional()
-  .describe("Fetch all pages (up to a safety cap) instead of one page. Ignores the page argument.");
+  .describe(
+    "Fetch several pages at once (up to a small safety cap; pageInfo.truncated=true means more pages exist and you should page manually). Ignores page/perPage.",
+  );
 
 export function registerEventTools(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
@@ -108,7 +117,7 @@ export function registerEventTools(server: McpServer, ctx: ToolContext): void {
         const { nodes, pageInfo } = await fetchAllPages(
           async (page) => (page === 1 ? first : await getPage(page, perPage)).entrants,
           perPage,
-          20,
+          FETCH_ALL_MAX_PAGES.entrants,
         );
         return {
           event: { id: first.id, name: first.name ?? null, slug: first.slug ?? null },
@@ -160,7 +169,7 @@ export function registerEventTools(server: McpServer, ctx: ToolContext): void {
         const { nodes, pageInfo } = await fetchAllPages(
           async (page) => (page === 1 ? first : await getPage(page, perPage)).standings,
           perPage,
-          10,
+          FETCH_ALL_MAX_PAGES.standings,
         );
         return {
           event: { id: first.id, name: first.name ?? null, slug: first.slug ?? null },
@@ -185,8 +194,10 @@ export function registerEventTools(server: McpServer, ctx: ToolContext): void {
       description:
         "List an event's sets (matches) in a normalized form: round, state " +
         "(COMPLETED/ACTIVE/...), both entrants with seeds and players, per-entrant score " +
-        "(-1 = DQ), winner, phase, and VOD URL when available. " +
-        "Filter by state, phaseIds (from get_event's phases, e.g. Top 8), round, or entrants.",
+        "(-1 = DQ), winner, phase, stream, and VOD URL when available. " +
+        "Filter by state, phaseIds (from get_event's phases, e.g. Top 8), round, entrants, or players. " +
+        "Set includeGames: true to also return each set's games (stage, winner, character selections) " +
+        "and derivedCharacters; that forces perPage <= 10 because of start.gg's complexity cap.",
       inputSchema: {
         ...s.eventLocatorShape,
         state: s.setStates.optional(),
@@ -205,12 +216,25 @@ export function registerEventTools(server: McpServer, ctx: ToolContext): void {
           .max(20)
           .optional()
           .describe("Only sets involving these entrant ids."),
+        playerIds: z
+          .array(s.positiveId)
+          .max(20)
+          .optional()
+          .describe("Only sets involving these player ids (players[].playerId in set results)."),
         showByes: z.boolean().optional().describe("Include bye sets. Default false."),
         hasVod: z.boolean().optional().describe("Only sets that have a VOD."),
         sortType: SORT_TYPE,
+        includeGames: z
+          .boolean()
+          .optional()
+          .describe(
+            "Also return each set's games (stage, winner, character selections) and derivedCharacters. " +
+              "Forces perPage <= 10 because of start.gg's complexity cap. Default false.",
+          ),
         page: s.page,
         // ~26-34 nested objects per set; start.gg caps a request at 1000 objects,
         // so perPage above ~30 gets rejected with a complexity error.
+        // includeGames nests games (~8 objects each); the handler clamps perPage to 10.
         perPage: s.perPage(30, 20),
         fetchAll: FETCH_ALL,
       },
@@ -223,9 +247,12 @@ export function registerEventTools(server: McpServer, ctx: ToolContext): void {
       if (args.phaseIds) filters.phaseIds = args.phaseIds;
       if (args.roundNumber !== undefined) filters.roundNumber = args.roundNumber;
       if (args.entrantIds) filters.entrantIds = args.entrantIds;
+      if (args.playerIds) filters.playerIds = args.playerIds;
       if (args.showByes !== undefined) filters.showByes = args.showByes;
       if (args.hasVod !== undefined) filters.hasVod = args.hasVod;
 
+      const includeGames = Boolean(args.includeGames);
+      const operation = includeGames ? "GetEventSetsWithGames" : "GetEventSets";
       const baseVars = {
         ...vars,
         ...(args.sortType ? { sortType: args.sortType } : {}),
@@ -233,7 +260,7 @@ export function registerEventTools(server: McpServer, ctx: ToolContext): void {
       };
       const getPage = async (page: number, perPage: number) => {
         const data = await ctx.client.request<any>(
-          "GetEventSets",
+          operation,
           { ...baseVars, page, perPage },
           { cacheTtlMs: TTL.sets },
         );
@@ -243,12 +270,12 @@ export function registerEventTools(server: McpServer, ctx: ToolContext): void {
       };
 
       if (args.fetchAll) {
-        const perPage = 30;
+        const perPage = includeGames ? 10 : 30;
         const first = await getPage(1, perPage);
         const { nodes, pageInfo } = await fetchAllPages(
           async (page) => (page === 1 ? first : await getPage(page, perPage)).sets,
           perPage,
-          25,
+          FETCH_ALL_MAX_PAGES.sets,
         );
         return {
           event: { id: first.id, name: first.name ?? null, slug: first.slug ?? null },
@@ -257,7 +284,8 @@ export function registerEventTools(server: McpServer, ctx: ToolContext): void {
         };
       }
 
-      const e = await getPage(args.page ?? 1, args.perPage ?? 20);
+      const perPage = includeGames ? Math.min(args.perPage ?? 10, 10) : (args.perPage ?? 20);
+      const e = await getPage(args.page ?? 1, perPage);
       return {
         event: { id: e.id, name: e.name ?? null, slug: e.slug ?? null },
         pageInfo: normalizePageInfo(e.sets?.pageInfo),

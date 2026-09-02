@@ -1,10 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { StartggClient } from "../src/startgg/client.js";
 import { RateLimiter } from "../src/startgg/rate-limit.js";
 import { registerAllTools } from "../src/tools/index.js";
+import { FETCH_ALL_MAX_PAGES } from "../src/tools/shared.js";
+
+const setWithGames = JSON.parse(
+  readFileSync(new URL("./fixtures/set-with-games.json", import.meta.url), "utf8"),
+);
 
 const EXPECTED_TOOLS = [
   "search_videogames",
@@ -18,27 +24,34 @@ const EXPECTED_TOOLS = [
   "get_event_entrants",
   "get_event_standings",
   "get_event_sets",
+  "get_set_games",
   "get_player",
   "get_player_sets",
   "get_stream_queue",
   "resolve_startgg_url",
 ];
 
-/** Scripted GraphQL backend keyed by operationName. */
+type ScriptedResponse = unknown | ((variables: Record<string, unknown>) => unknown);
+
+/** Scripted GraphQL backend keyed by operationName. Values may be a data payload or a function of the request variables. */
 function makeConnectedPair(
-  responses: Record<string, unknown>,
+  responses: Record<string, ScriptedResponse>,
   { token = "test-token" }: { token?: string | undefined } = {},
 ) {
   const seen: { operationName: string; variables: Record<string, unknown> }[] = [];
   const fetchFn = (async (_url: unknown, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body));
     seen.push({ operationName: body.operationName, variables: body.variables });
-    const data = responses[body.operationName];
-    if (data === undefined) {
+    const scripted = responses[body.operationName];
+    if (scripted === undefined) {
       return new Response(JSON.stringify({ errors: [{ message: "unscripted operation" }] }), {
         status: 200,
       });
     }
+    const data =
+      typeof scripted === "function"
+        ? (scripted as (variables: Record<string, unknown>) => unknown)(body.variables)
+        : scripted;
     return new Response(JSON.stringify({ data }), { status: 200 });
   }) as typeof fetch;
 
@@ -175,6 +188,25 @@ describe("MCP tool surface", () => {
     });
   });
 
+  it("tool results are compact JSON", async () => {
+    const { connect } = makeConnectedPair({
+      SearchVideogames: {
+        videogames: {
+          pageInfo: { page: 1, perPage: 25, total: 0, totalPages: 0 },
+          nodes: [],
+        },
+      },
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "search_videogames",
+      arguments: { name: "smash" },
+    });
+    expect(result.isError).toBeFalsy();
+    const text = (result.content as { text: string }[])[0]!.text;
+    expect(text).toBe(JSON.stringify(JSON.parse(text)));
+  });
+
   it("get_event_sets maps state names to integers in the API filter", async () => {
     const { connect, seen } = makeConnectedPair({
       GetEventSets: {
@@ -195,17 +227,93 @@ describe("MCP tool surface", () => {
     expect(seen[0]!.variables).toMatchObject({ id: 1, filters: { state: [3] } });
   });
 
-  it("get_stream_queue resolves slugs to a tournament id first", async () => {
+  it("get_event_sets passes playerIds through to SetFilters", async () => {
     const { connect, seen } = makeConnectedPair({
-      ResolveTournament: { tournament: { id: 999, name: "Weekly", slug: "tournament/weekly" } },
-      GetStreamQueue: {
-        streamQueue: [
-          {
-            id: "q1",
-            stream: { id: 5, streamSource: "TWITCH", streamName: "chan" },
-            sets: [],
+      GetEventSets: {
+        event: {
+          id: 1,
+          name: "Singles",
+          slug: "tournament/t/event/e",
+          sets: { pageInfo: { page: 1, perPage: 20, total: 0, totalPages: 0 }, nodes: [] },
+        },
+      },
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_event_sets",
+      arguments: { eventId: 1, playerIds: [1, 2] },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(seen[0]!.variables).toMatchObject({ filters: { playerIds: [1, 2] } });
+  });
+
+  it("get_event_sets fetchAll concatenates pages and stops at totalPages", async () => {
+    const { connect, seen } = makeConnectedPair({
+      GetEventSets: (variables: Record<string, unknown>) => ({
+        event: {
+          id: 1,
+          name: "Singles",
+          slug: "tournament/t/event/e",
+          sets: {
+            pageInfo: { page: variables.page, perPage: 30, total: 2, totalPages: 2 },
+            nodes: [{ id: variables.page === 1 ? 101 : 102 }],
           },
-        ],
+        },
+      }),
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_event_sets",
+      arguments: { eventId: 1, fetchAll: true },
+    });
+    expect(result.isError).toBeFalsy();
+    const payload = parsePayload(result);
+    expect(seen).toHaveLength(2);
+    expect(payload.sets.map((s: { id: number }) => s.id)).toEqual([101, 102]);
+    expect(payload.pageInfo.truncated).toBe(false);
+    expect(payload.pageInfo.fetchedPages).toBe(2);
+  });
+
+  it("get_event_sets fetchAll stops at the page cap and flags truncated", async () => {
+    const { connect, seen } = makeConnectedPair({
+      GetEventSets: (variables: Record<string, unknown>) => ({
+        event: {
+          id: 1,
+          name: "Singles",
+          slug: "tournament/t/event/e",
+          sets: {
+            pageInfo: { page: variables.page, perPage: 30, total: 240, totalPages: 8 },
+            nodes: [{ id: variables.page }],
+          },
+        },
+      }),
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_event_sets",
+      arguments: { eventId: 1, fetchAll: true },
+    });
+    expect(result.isError).toBeFalsy();
+    const payload = parsePayload(result);
+    expect(seen).toHaveLength(FETCH_ALL_MAX_PAGES.sets);
+    expect(payload.pageInfo.truncated).toBe(true);
+    expect(payload.pageInfo.fetchedPages).toBe(FETCH_ALL_MAX_PAGES.sets);
+  });
+
+  it("get_stream_queue fetches queue and tournament in one request for URL locators", async () => {
+    const { connect, seen } = makeConnectedPair({
+      GetStreamQueue: {
+        tournament: {
+          id: 999,
+          name: "Weekly",
+          streamQueue: [
+            {
+              id: "q1",
+              stream: { id: 5, streamSource: "TWITCH", streamName: "chan" },
+              sets: [],
+            },
+          ],
+        },
       },
     });
     const client = await connect();
@@ -214,9 +322,62 @@ describe("MCP tool surface", () => {
       arguments: { url: "https://www.start.gg/tournament/weekly/details" },
     });
     const payload = parsePayload(result);
+    expect(payload.tournament).toEqual({ id: 999, name: "Weekly" });
     expect(payload.streamQueues[0].stream.derivedUrl).toBe("https://www.twitch.tv/chan");
-    expect(seen.map((s) => s.operationName)).toEqual(["ResolveTournament", "GetStreamQueue"]);
-    expect(seen[1]!.variables).toEqual({ tournamentId: 999 });
+    expect(seen.map((s) => s.operationName)).toEqual(["GetStreamQueue"]);
+    expect(seen[0]!.variables).toEqual({ slug: "weekly" });
+  });
+
+  it("get_stream_queue surfaces NOT_FOUND for a numeric id that does not exist", async () => {
+    const { connect, seen } = makeConnectedPair({ GetStreamQueue: { tournament: null } });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_stream_queue",
+      arguments: { tournamentId: 424242 },
+    });
+    expect(result.isError).toBe(true);
+    expect(parsePayload(result).error.code).toBe("NOT_FOUND");
+    expect(seen.map((s) => s.operationName)).toEqual(["GetStreamQueue"]);
+    expect(seen[0]!.variables).toEqual({ id: 424242 });
+  });
+
+  it("get_stream_queue treats a null streamQueue on an existing tournament as empty", async () => {
+    const { connect } = makeConnectedPair({
+      GetStreamQueue: { tournament: { id: 77, name: "Quiet Weekly", streamQueue: null } },
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_stream_queue",
+      arguments: { tournamentId: 77 },
+    });
+    expect(result.isError).toBeFalsy();
+    const payload = parsePayload(result);
+    expect(payload.tournament).toEqual({ id: 77, name: "Quiet Weekly" });
+    expect(payload.streamQueues).toEqual([]);
+  });
+
+  it("get_upcoming_tournaments reuses the cache for same-minute calls", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-08-25T12:00:05Z"));
+      const { connect, seen } = makeConnectedPair({
+        SearchTournaments: {
+          tournaments: { pageInfo: { page: 1, perPage: 25, total: 0, totalPages: 0 }, nodes: [] },
+        },
+      });
+      const client = await connect();
+      await client.callTool({ name: "get_upcoming_tournaments", arguments: { videogameId: 1386 } });
+      // Same minute, different second: beforeDate must floor to the same value
+      // so the second call is served from the 60s search cache.
+      vi.setSystemTime(new Date("2026-08-25T12:00:47Z"));
+      await client.callTool({ name: "get_upcoming_tournaments", arguments: { videogameId: 1386 } });
+      expect(seen).toHaveLength(1);
+      const filter = seen[0]!.variables.filter as { beforeDate: number };
+      const minuteFloor = Math.floor(Date.parse("2026-08-25T12:00:00Z") / 1000);
+      expect(filter.beforeDate).toBe(minuteFloor + 30 * 86400);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("surfaces NOT_FOUND for missing tournaments", async () => {
@@ -228,5 +389,87 @@ describe("MCP tool surface", () => {
     });
     expect(result.isError).toBe(true);
     expect(parsePayload(result).error.code).toBe("NOT_FOUND");
+  });
+
+  it("get_set_games returns per-game details from GetSetGames", async () => {
+    const { connect, seen } = makeConnectedPair({
+      GetSetGames: { set: setWithGames.set },
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_set_games",
+      arguments: { setId: setWithGames.set.id },
+    });
+    expect(result.isError).toBeFalsy();
+    const payload = parsePayload(result);
+    expect(seen[0]).toMatchObject({
+      operationName: "GetSetGames",
+      variables: { id: setWithGames.set.id },
+    });
+    expect(payload.set.games).toHaveLength(4);
+  });
+
+  it("get_set_games rejects preview set ids without fetching", async () => {
+    const { connect, seen } = makeConnectedPair({});
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_set_games",
+      arguments: { setId: "preview_3430499_2_0" },
+    });
+    expect(result.isError).toBe(true);
+    expect(parsePayload(result).error.code).toBe("INVALID_INPUT");
+    expect(seen).toHaveLength(0);
+  });
+
+  it("get_set_games surfaces NOT_FOUND when the set is missing", async () => {
+    const { connect } = makeConnectedPair({ GetSetGames: { set: null } });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_set_games",
+      arguments: { setId: 999999 },
+    });
+    expect(result.isError).toBe(true);
+    expect(parsePayload(result).error.code).toBe("NOT_FOUND");
+  });
+
+  it("get_event_sets includeGames true clamps perPage and uses GetEventSetsWithGames", async () => {
+    const { connect, seen } = makeConnectedPair({
+      GetEventSetsWithGames: {
+        event: {
+          id: 1,
+          name: "Singles",
+          slug: "tournament/t/event/e",
+          sets: { pageInfo: { page: 1, perPage: 10, total: 0, totalPages: 0 }, nodes: [] },
+        },
+      },
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_event_sets",
+      arguments: { eventId: 1, includeGames: true, perPage: 30 },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(seen[0]!.operationName).toBe("GetEventSetsWithGames");
+    expect(seen[0]!.variables.perPage).toBe(10);
+  });
+
+  it("get_event_sets without includeGames uses GetEventSets", async () => {
+    const { connect, seen } = makeConnectedPair({
+      GetEventSets: {
+        event: {
+          id: 1,
+          name: "Singles",
+          slug: "tournament/t/event/e",
+          sets: { pageInfo: { page: 1, perPage: 20, total: 0, totalPages: 0 }, nodes: [] },
+        },
+      },
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_event_sets",
+      arguments: { eventId: 1 },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(seen[0]!.operationName).toBe("GetEventSets");
   });
 });

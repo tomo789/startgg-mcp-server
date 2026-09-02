@@ -30,6 +30,8 @@ export const OPERATIONS = {
   GetEventEntrants: "entrants",
   GetEventStandings: "standings",
   GetEventSets: "sets",
+  GetEventSetsWithGames: "sets",
+  GetSetGames: "games",
   GetStreamQueue: "streams",
   GetPlayer: "players",
   GetPlayerSets: "players",

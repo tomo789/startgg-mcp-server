@@ -6,6 +6,10 @@ import { TTL, tournamentLocator, wrapHandler, type ToolContext } from "./shared.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+function describeLocator(vars: { id?: number; slug?: string }): string {
+  return vars.id !== undefined ? `Tournament id ${vars.id}` : `Tournament "${vars.slug}"`;
+}
+
 export function registerStreamTools(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     "get_stream_queue",
@@ -20,27 +24,17 @@ export function registerStreamTools(server: McpServer, ctx: ToolContext): void {
     },
     wrapHandler(async (args) => {
       const vars = tournamentLocator(args);
-      let tournamentId = vars.id;
-      let tournamentName: string | null = null;
-      if (tournamentId === undefined) {
-        const data = await ctx.client.request<any>(
-          "ResolveTournament",
-          { slug: vars.slug },
-          { cacheTtlMs: TTL.resolve },
-        );
-        const t = data?.tournament;
-        if (!t) throw notFound(`Tournament "${vars.slug}"`);
-        tournamentId = t.id;
-        tournamentName = t.name ?? null;
-      }
-      const data = await ctx.client.request<any>(
-        "GetStreamQueue",
-        { tournamentId },
-        { cacheTtlMs: TTL.streamQueue },
-      );
-      const queues = data?.streamQueue;
+      // One request for every locator kind: the tournament node distinguishes
+      // "tournament does not exist" (null tournament -> NOT_FOUND) from
+      // "nothing is queued" (null streamQueue -> empty array).
+      const data = await ctx.client.request<any>("GetStreamQueue", vars, {
+        cacheTtlMs: TTL.streamQueue,
+      });
+      const t = data?.tournament;
+      if (!t) throw notFound(describeLocator(vars));
+      const queues = t.streamQueue;
       return {
-        tournament: { id: tournamentId, name: tournamentName },
+        tournament: { id: t.id, name: t.name ?? null },
         // start.gg returns null (not []) when no sets are queued.
         streamQueues: Array.isArray(queues) ? queues.map(normalizeStreamQueue).filter(Boolean) : [],
       };
