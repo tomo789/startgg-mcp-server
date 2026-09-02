@@ -33,7 +33,7 @@ belongs in applications built on top — see
 
 ## Requirements
 
-- Node.js >= 20
+- Node.js >= 22
 - A start.gg API token
 
 ## Getting a start.gg API token
