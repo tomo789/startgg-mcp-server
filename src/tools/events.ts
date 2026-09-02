@@ -10,7 +10,14 @@ import {
   normalizeStanding,
 } from "../startgg/normalize.js";
 import * as s from "../schemas/common.js";
-import { TTL, eventLocator, fetchAllPages, wrapHandler, type ToolContext } from "./shared.js";
+import {
+  FETCH_ALL_MAX_PAGES,
+  TTL,
+  eventLocator,
+  fetchAllPages,
+  wrapHandler,
+  type ToolContext,
+} from "./shared.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -26,7 +33,9 @@ function describeLocator(vars: { id?: number; slug?: string }): string {
 const FETCH_ALL = z
   .boolean()
   .optional()
-  .describe("Fetch all pages (up to a safety cap) instead of one page. Ignores the page argument.");
+  .describe(
+    "Fetch several pages at once (up to a small safety cap; pageInfo.truncated=true means more pages exist and you should page manually). Ignores page/perPage.",
+  );
 
 export function registerEventTools(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
@@ -108,7 +117,7 @@ export function registerEventTools(server: McpServer, ctx: ToolContext): void {
         const { nodes, pageInfo } = await fetchAllPages(
           async (page) => (page === 1 ? first : await getPage(page, perPage)).entrants,
           perPage,
-          20,
+          FETCH_ALL_MAX_PAGES.entrants,
         );
         return {
           event: { id: first.id, name: first.name ?? null, slug: first.slug ?? null },
@@ -160,7 +169,7 @@ export function registerEventTools(server: McpServer, ctx: ToolContext): void {
         const { nodes, pageInfo } = await fetchAllPages(
           async (page) => (page === 1 ? first : await getPage(page, perPage)).standings,
           perPage,
-          10,
+          FETCH_ALL_MAX_PAGES.standings,
         );
         return {
           event: { id: first.id, name: first.name ?? null, slug: first.slug ?? null },
@@ -186,7 +195,7 @@ export function registerEventTools(server: McpServer, ctx: ToolContext): void {
         "List an event's sets (matches) in a normalized form: round, state " +
         "(COMPLETED/ACTIVE/...), both entrants with seeds and players, per-entrant score " +
         "(-1 = DQ), winner, phase, and VOD URL when available. " +
-        "Filter by state, phaseIds (from get_event's phases, e.g. Top 8), round, or entrants.",
+        "Filter by state, phaseIds (from get_event's phases, e.g. Top 8), round, entrants, or players.",
       inputSchema: {
         ...s.eventLocatorShape,
         state: s.setStates.optional(),
@@ -205,6 +214,11 @@ export function registerEventTools(server: McpServer, ctx: ToolContext): void {
           .max(20)
           .optional()
           .describe("Only sets involving these entrant ids."),
+        playerIds: z
+          .array(s.positiveId)
+          .max(20)
+          .optional()
+          .describe("Only sets involving these player ids (players[].playerId in set results)."),
         showByes: z.boolean().optional().describe("Include bye sets. Default false."),
         hasVod: z.boolean().optional().describe("Only sets that have a VOD."),
         sortType: SORT_TYPE,
@@ -223,6 +237,7 @@ export function registerEventTools(server: McpServer, ctx: ToolContext): void {
       if (args.phaseIds) filters.phaseIds = args.phaseIds;
       if (args.roundNumber !== undefined) filters.roundNumber = args.roundNumber;
       if (args.entrantIds) filters.entrantIds = args.entrantIds;
+      if (args.playerIds) filters.playerIds = args.playerIds;
       if (args.showByes !== undefined) filters.showByes = args.showByes;
       if (args.hasVod !== undefined) filters.hasVod = args.hasVod;
 
@@ -248,7 +263,7 @@ export function registerEventTools(server: McpServer, ctx: ToolContext): void {
         const { nodes, pageInfo } = await fetchAllPages(
           async (page) => (page === 1 ? first : await getPage(page, perPage)).sets,
           perPage,
-          25,
+          FETCH_ALL_MAX_PAGES.sets,
         );
         return {
           event: { id: first.id, name: first.name ?? null, slug: first.slug ?? null },

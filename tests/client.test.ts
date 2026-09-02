@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { StartggClient, type StartggClientOptions } from "../src/startgg/client.js";
 import { StartggError } from "../src/startgg/errors.js";
 import { RateLimiter } from "../src/startgg/rate-limit.js";
@@ -74,6 +74,16 @@ describe("StartggClient", () => {
       code: "AUTH_ERROR",
     });
     expect(calls).toHaveLength(1);
+  });
+
+  it("cancels the response body on 401", async () => {
+    const response = new Response("x", { status: 401 });
+    const cancel = vi.spyOn(response.body!, "cancel");
+    const { client } = makeClient([() => response]);
+    await expect(client.request("SearchVideogames")).rejects.toMatchObject({
+      code: "AUTH_ERROR",
+    });
+    expect(cancel).toHaveBeenCalled();
   });
 
   it("never leaks the token in error messages", async () => {

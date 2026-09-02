@@ -5,6 +5,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { StartggClient } from "../src/startgg/client.js";
 import { RateLimiter } from "../src/startgg/rate-limit.js";
 import { registerAllTools } from "../src/tools/index.js";
+import { FETCH_ALL_MAX_PAGES } from "../src/tools/shared.js";
 
 const EXPECTED_TOOLS = [
   "search_videogames",
@@ -24,21 +25,27 @@ const EXPECTED_TOOLS = [
   "resolve_startgg_url",
 ];
 
-/** Scripted GraphQL backend keyed by operationName. */
+type ScriptedResponse = unknown | ((variables: Record<string, unknown>) => unknown);
+
+/** Scripted GraphQL backend keyed by operationName. Values may be a data payload or a function of the request variables. */
 function makeConnectedPair(
-  responses: Record<string, unknown>,
+  responses: Record<string, ScriptedResponse>,
   { token = "test-token" }: { token?: string | undefined } = {},
 ) {
   const seen: { operationName: string; variables: Record<string, unknown> }[] = [];
   const fetchFn = (async (_url: unknown, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body));
     seen.push({ operationName: body.operationName, variables: body.variables });
-    const data = responses[body.operationName];
-    if (data === undefined) {
+    const scripted = responses[body.operationName];
+    if (scripted === undefined) {
       return new Response(JSON.stringify({ errors: [{ message: "unscripted operation" }] }), {
         status: 200,
       });
     }
+    const data =
+      typeof scripted === "function"
+        ? (scripted as (variables: Record<string, unknown>) => unknown)(body.variables)
+        : scripted;
     return new Response(JSON.stringify({ data }), { status: 200 });
   }) as typeof fetch;
 
@@ -175,6 +182,25 @@ describe("MCP tool surface", () => {
     });
   });
 
+  it("tool results are compact JSON", async () => {
+    const { connect } = makeConnectedPair({
+      SearchVideogames: {
+        videogames: {
+          pageInfo: { page: 1, perPage: 25, total: 0, totalPages: 0 },
+          nodes: [],
+        },
+      },
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "search_videogames",
+      arguments: { name: "smash" },
+    });
+    expect(result.isError).toBeFalsy();
+    const text = (result.content as { text: string }[])[0]!.text;
+    expect(text).toBe(JSON.stringify(JSON.parse(text)));
+  });
+
   it("get_event_sets maps state names to integers in the API filter", async () => {
     const { connect, seen } = makeConnectedPair({
       GetEventSets: {
@@ -193,6 +219,79 @@ describe("MCP tool surface", () => {
     });
     expect(result.isError).toBeFalsy();
     expect(seen[0]!.variables).toMatchObject({ id: 1, filters: { state: [3] } });
+  });
+
+  it("get_event_sets passes playerIds through to SetFilters", async () => {
+    const { connect, seen } = makeConnectedPair({
+      GetEventSets: {
+        event: {
+          id: 1,
+          name: "Singles",
+          slug: "tournament/t/event/e",
+          sets: { pageInfo: { page: 1, perPage: 20, total: 0, totalPages: 0 }, nodes: [] },
+        },
+      },
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_event_sets",
+      arguments: { eventId: 1, playerIds: [1, 2] },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(seen[0]!.variables).toMatchObject({ filters: { playerIds: [1, 2] } });
+  });
+
+  it("get_event_sets fetchAll concatenates pages and stops at totalPages", async () => {
+    const { connect, seen } = makeConnectedPair({
+      GetEventSets: (variables: Record<string, unknown>) => ({
+        event: {
+          id: 1,
+          name: "Singles",
+          slug: "tournament/t/event/e",
+          sets: {
+            pageInfo: { page: variables.page, perPage: 30, total: 2, totalPages: 2 },
+            nodes: [{ id: variables.page === 1 ? 101 : 102 }],
+          },
+        },
+      }),
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_event_sets",
+      arguments: { eventId: 1, fetchAll: true },
+    });
+    expect(result.isError).toBeFalsy();
+    const payload = parsePayload(result);
+    expect(seen).toHaveLength(2);
+    expect(payload.sets.map((s: { id: number }) => s.id)).toEqual([101, 102]);
+    expect(payload.pageInfo.truncated).toBe(false);
+    expect(payload.pageInfo.fetchedPages).toBe(2);
+  });
+
+  it("get_event_sets fetchAll stops at the page cap and flags truncated", async () => {
+    const { connect, seen } = makeConnectedPair({
+      GetEventSets: (variables: Record<string, unknown>) => ({
+        event: {
+          id: 1,
+          name: "Singles",
+          slug: "tournament/t/event/e",
+          sets: {
+            pageInfo: { page: variables.page, perPage: 30, total: 240, totalPages: 8 },
+            nodes: [{ id: variables.page }],
+          },
+        },
+      }),
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_event_sets",
+      arguments: { eventId: 1, fetchAll: true },
+    });
+    expect(result.isError).toBeFalsy();
+    const payload = parsePayload(result);
+    expect(seen).toHaveLength(FETCH_ALL_MAX_PAGES.sets);
+    expect(payload.pageInfo.truncated).toBe(true);
+    expect(payload.pageInfo.fetchedPages).toBe(FETCH_ALL_MAX_PAGES.sets);
   });
 
   it("get_stream_queue resolves slugs to a tournament id first", async () => {

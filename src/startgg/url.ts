@@ -16,8 +16,11 @@ const KNOWN_HOSTS = new Set(["start.gg", "www.start.gg", "smash.gg", "www.smash.
  * the network. Accepted inputs:
  *   https://www.start.gg/tournament/<t>/event/<e>[/...]
  *   https://start.gg/tournament/<t>[/details|/events|...]
+ *   www.start.gg/tournament/<t>/event/<e>   (scheme-less known host)
+ *   start.gg/tournament/<t>
  *   tournament/<t>/event/<e>
  *   tournament/<t>
+ *   <t>/event/<e>            (event slug without the "tournament/" prefix)
  *   <t>                      (bare tournament slug)
  */
 export function parseStartggUrl(input: string): ParsedStartggUrl {
@@ -40,6 +43,11 @@ export function parseStartggUrl(input: string): ParsedStartggUrl {
     path = url.pathname;
   } else if (trimmed.includes("://")) {
     throw invalidInput(`Unsupported URL scheme in: ${trimmed}`);
+  } else {
+    const rawSegs = trimmed.split("/").filter(Boolean);
+    if (rawSegs[0] && KNOWN_HOSTS.has(rawSegs[0].toLowerCase())) {
+      path = rawSegs.slice(1).join("/");
+    }
   }
 
   const segments = path.split("/").filter(Boolean);
@@ -59,6 +67,9 @@ export function parseStartggUrl(input: string): ParsedStartggUrl {
     // Bare slug, e.g. "genesis-9".
     tournamentSlug = segments[0]!;
     rest = [];
+  } else if (segments.length >= 3 && segments[1]!.toLowerCase() === "event") {
+    tournamentSlug = segments[0]!;
+    rest = segments.slice(1);
   } else {
     throw invalidInput(
       `Unrecognized start.gg path "/${segments.join("/")}". ` +

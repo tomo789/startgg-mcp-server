@@ -28,11 +28,11 @@ interface ToolResult {
 }
 
 export function jsonResult(data: unknown): ToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+  return { content: [{ type: "text", text: JSON.stringify(data) }] };
 }
 
 /**
- * Wrap a tool handler: successful returns become pretty-printed JSON, thrown
+ * Wrap a tool handler: successful returns become compact JSON, thrown
  * errors become a structured { error: { code, message } } payload with
  * isError set. Tokens and stack traces never reach the client.
  */
@@ -49,11 +49,9 @@ export function wrapHandler<Args>(
         content: [
           {
             type: "text",
-            text: JSON.stringify(
-              { error: { code: e.code, message: e.message, ...(e.details ?? {}) } },
-              null,
-              2,
-            ),
+            text: JSON.stringify({
+              error: { code: e.code, message: e.message, ...(e.details ?? {}) },
+            }),
           },
         ],
       };
@@ -126,6 +124,13 @@ export function toEpochSeconds(value: string | number, argName: string): number 
 }
 
 // ---------- pagination ----------
+
+/**
+ * Hard page caps for fetchAll. Output goes to an LLM context, so caps are
+ * deliberately small (≈100 KB of compact JSON); `truncated: true` tells the
+ * caller to page manually.
+ */
+export const FETCH_ALL_MAX_PAGES = { entrants: 5, standings: 5, sets: 5 } as const;
 
 export interface FetchAllPageInfo {
   total: number | null;

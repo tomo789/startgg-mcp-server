@@ -105,6 +105,7 @@ export class StartggClient {
       }
 
       if (response.status === 401 || response.status === 403) {
+        discardBody(response);
         throw authError(
           `start.gg rejected the request (HTTP ${response.status}). ` +
             "The STARTGG_TOKEN is missing required permissions, expired, or invalid.",

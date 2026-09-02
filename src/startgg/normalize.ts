@@ -192,7 +192,9 @@ export function setStateName(state: number | null | undefined): string | null {
 
 export function toIso(epochSeconds: number | null | undefined): string | null {
   if (epochSeconds === null || epochSeconds === undefined) return null;
-  return new Date(epochSeconds * 1000).toISOString();
+  const d = new Date(epochSeconds * 1000);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
 }
 
 function absoluteUrl(url: string | null | undefined): string | null {

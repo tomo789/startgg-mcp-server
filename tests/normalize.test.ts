@@ -9,6 +9,7 @@ import {
   normalizeStreamQueue,
   normalizeTournament,
   setStateName,
+  toIso,
 } from "../src/startgg/normalize.js";
 
 const fixtures = JSON.parse(
@@ -84,6 +85,13 @@ describe("normalizeSet", () => {
   it("returns null for junk input", () => {
     expect(normalizeSet(null)).toBeNull();
     expect(normalizeSet({})).toBeNull();
+  });
+});
+
+describe("toIso", () => {
+  it("returns null for an invalid Date and still converts epoch 0", () => {
+    expect(toIso(1e20)).toBeNull();
+    expect(toIso(0)).toBe("1970-01-01T00:00:00.000Z");
   });
 });
 
