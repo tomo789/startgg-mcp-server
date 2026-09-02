@@ -15,6 +15,9 @@ import {
 const fixtures = JSON.parse(
   readFileSync(new URL("./fixtures/completed-set.json", import.meta.url), "utf8"),
 );
+const setWithGames = JSON.parse(
+  readFileSync(new URL("./fixtures/set-with-games.json", import.meta.url), "utf8"),
+);
 
 describe("normalizeSet", () => {
   it("normalizes a completed set into the documented shape", () => {
@@ -85,6 +88,41 @@ describe("normalizeSet", () => {
   it("returns null for junk input", () => {
     expect(normalizeSet(null)).toBeNull();
     expect(normalizeSet({})).toBeNull();
+  });
+
+  it("normalizes games, selections, derivedCharacters, stream, and event from a reported set", () => {
+    const set = normalizeSet(setWithGames.set)!;
+    expect(set.games).toHaveLength(4);
+    expect(set.games![0]!.stage?.name).toBe("Small Battlefield");
+    expect(typeof set.games![0]!.winnerEntrantId).toBe("number");
+    expect(set.games![0]!.selections).toHaveLength(2);
+    expect(set.games![0]!.selections.map((s) => s.character?.name)).toEqual(
+      expect.arrayContaining(["Kazuya", "Min Min"]),
+    );
+    expect(set.derivedCharacters).toHaveLength(2);
+    expect(set.derivedCharacters![0]!.entrantId).toBe(set.entrant1!.entrantId);
+    expect(set.derivedCharacters![1]!.entrantId).toBe(set.entrant2!.entrantId);
+    for (const entry of set.derivedCharacters!) {
+      expect(entry.characters.length).toBeGreaterThan(0);
+      expect(new Set(entry.characters).size).toBe(entry.characters.length);
+    }
+    expect(set.stream).toBeNull();
+    expect(typeof set.event?.tournament?.slug).toBe("string");
+  });
+
+  it("omits games and derivedCharacters when the raw payload has no games key", () => {
+    const set = normalizeSet(fixtures.completedSet)!;
+    expect(set).not.toHaveProperty("games");
+    expect(set).not.toHaveProperty("derivedCharacters");
+  });
+
+  it("treats games: null as an empty list with empty derivedCharacters per slot", () => {
+    const set = normalizeSet({ ...setWithGames.set, games: null })!;
+    expect(set.games).toEqual([]);
+    expect(set.derivedCharacters).toEqual([
+      { entrantId: set.entrant1!.entrantId, characters: [] },
+      { entrantId: set.entrant2!.entrantId, characters: [] },
+    ]);
   });
 });
 

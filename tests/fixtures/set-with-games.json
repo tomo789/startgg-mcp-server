@@ -1,0 +1,255 @@
+{
+  "comment": "Real shape from the live start.gg API on 2026-09-02 via Query.set(id) (public bracket data); games/selections present because the set was reported with characters.",
+  "set": {
+    "id": 106877975,
+    "identifier": "E",
+    "round": 3,
+    "fullRoundText": "Grand Final Reset",
+    "state": 3,
+    "startedAt": 1787551185,
+    "completedAt": 1787552362,
+    "winnerId": 24480092,
+    "displayScore": "RenSuø 1 - LittleMacMain 3",
+    "totalGames": 5,
+    "vodUrl": null,
+    "event": {
+      "id": 1694463,
+      "name": "Baeverse Battles #70",
+      "slug": "tournament/baeverse-battles-70-5/event/baeverse-battles-70",
+      "tournament": {
+        "id": 945962,
+        "name": "Baeverse Battles #70 ($5)",
+        "slug": "tournament/baeverse-battles-70-5"
+      }
+    },
+    "stream": null,
+    "phaseGroup": {
+      "id": 3431316,
+      "displayIdentifier": "1",
+      "phase": {
+        "id": 2378213,
+        "name": "Top 8"
+      }
+    },
+    "slots": [
+      {
+        "slotIndex": 0,
+        "entrant": {
+          "id": 24481002,
+          "name": "RenSuø",
+          "initialSeedNum": 2,
+          "isDisqualified": null,
+          "participants": [
+            {
+              "player": {
+                "id": 4446519,
+                "gamerTag": "RenSuø",
+                "prefix": null
+              }
+            }
+          ]
+        },
+        "standing": {
+          "placement": 2,
+          "stats": {
+            "score": {
+              "label": "Score",
+              "value": 1,
+              "displayValue": "1"
+            }
+          }
+        }
+      },
+      {
+        "slotIndex": 1,
+        "entrant": {
+          "id": 24480092,
+          "name": "LittleMacMain",
+          "initialSeedNum": 5,
+          "isDisqualified": null,
+          "participants": [
+            {
+              "player": {
+                "id": 3655189,
+                "gamerTag": "LittleMacMain",
+                "prefix": ""
+              }
+            }
+          ]
+        },
+        "standing": {
+          "placement": 1,
+          "stats": {
+            "score": {
+              "label": "Score",
+              "value": 3,
+              "displayValue": "3"
+            }
+          }
+        }
+      }
+    ],
+    "games": [
+      {
+        "id": 40335763,
+        "orderNum": 1,
+        "state": 3,
+        "winnerId": 24480092,
+        "entrant1Score": null,
+        "entrant2Score": null,
+        "stage": {
+          "id": 484,
+          "name": "Small Battlefield"
+        },
+        "selections": [
+          {
+            "id": 60373486,
+            "orderNum": null,
+            "selectionType": "CHARACTER",
+            "selectionValue": 1846,
+            "entrant": {
+              "id": 24481002
+            },
+            "character": {
+              "id": 1846,
+              "name": "Kazuya"
+            }
+          },
+          {
+            "id": 60373487,
+            "orderNum": null,
+            "selectionType": "CHARACTER",
+            "selectionValue": 1747,
+            "entrant": {
+              "id": 24480092
+            },
+            "character": {
+              "id": 1747,
+              "name": "Min Min"
+            }
+          }
+        ]
+      },
+      {
+        "id": 40335781,
+        "orderNum": 2,
+        "state": 3,
+        "winnerId": 24480092,
+        "entrant1Score": null,
+        "entrant2Score": null,
+        "stage": {
+          "id": 348,
+          "name": "Kalos Pokémon League"
+        },
+        "selections": [
+          {
+            "id": 60373522,
+            "orderNum": null,
+            "selectionType": "CHARACTER",
+            "selectionValue": 1747,
+            "entrant": {
+              "id": 24480092
+            },
+            "character": {
+              "id": 1747,
+              "name": "Min Min"
+            }
+          },
+          {
+            "id": 60373523,
+            "orderNum": null,
+            "selectionType": "CHARACTER",
+            "selectionValue": 1846,
+            "entrant": {
+              "id": 24481002
+            },
+            "character": {
+              "id": 1846,
+              "name": "Kazuya"
+            }
+          }
+        ]
+      },
+      {
+        "id": 40335799,
+        "orderNum": 3,
+        "state": 3,
+        "winnerId": 24481002,
+        "entrant1Score": null,
+        "entrant2Score": null,
+        "stage": {
+          "id": 348,
+          "name": "Kalos Pokémon League"
+        },
+        "selections": [
+          {
+            "id": 60373558,
+            "orderNum": null,
+            "selectionType": "CHARACTER",
+            "selectionValue": 1747,
+            "entrant": {
+              "id": 24480092
+            },
+            "character": {
+              "id": 1747,
+              "name": "Min Min"
+            }
+          },
+          {
+            "id": 60373559,
+            "orderNum": null,
+            "selectionType": "CHARACTER",
+            "selectionValue": 1846,
+            "entrant": {
+              "id": 24481002
+            },
+            "character": {
+              "id": 1846,
+              "name": "Kazuya"
+            }
+          }
+        ]
+      },
+      {
+        "id": 40335820,
+        "orderNum": 4,
+        "state": 3,
+        "winnerId": 24480092,
+        "entrant1Score": null,
+        "entrant2Score": null,
+        "stage": {
+          "id": 484,
+          "name": "Small Battlefield"
+        },
+        "selections": [
+          {
+            "id": 60373600,
+            "orderNum": null,
+            "selectionType": "CHARACTER",
+            "selectionValue": 1846,
+            "entrant": {
+              "id": 24481002
+            },
+            "character": {
+              "id": 1846,
+              "name": "Kazuya"
+            }
+          },
+          {
+            "id": 60373601,
+            "orderNum": null,
+            "selectionType": "CHARACTER",
+            "selectionValue": 1747,
+            "entrant": {
+              "id": 24480092
+            },
+            "character": {
+              "id": 1747,
+              "name": "Min Min"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 {
   "name": "startgg-mcp-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for the start.gg GraphQL API — tournament discovery, events, entrants, sets, standings, and streams for any game on start.gg",
   "type": "module",
   "license": "MIT",

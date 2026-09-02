@@ -97,6 +97,21 @@ export interface NormalizedSetSlot {
   score: number | null;
 }
 
+export interface NormalizedGame {
+  id: number | string;
+  orderNum: number | null;
+  /** Raw integer state as returned by start.gg. */
+  stateRaw: number | null;
+  winnerEntrantId: number | null;
+  score: { entrant1: number | null; entrant2: number | null };
+  stage: { id: number; name: string | null } | null;
+  /** Character picks reported for this game, one entry per entrant that reported. */
+  selections: {
+    entrantId: number | null;
+    character: { id: number; name: string | null } | null;
+  }[];
+}
+
 export interface NormalizedSet {
   /** Usually numeric; unstarted "preview" sets have string ids like "preview_...". */
   id: number | string;
@@ -130,6 +145,22 @@ export interface NormalizedSet {
     slug: string | null;
     tournament: { id: number; name: string | null; slug: string | null } | null;
   } | null;
+  /** Present when the raw payload included `stream`. `null` means the set is not on a stream. */
+  stream?: {
+    id: number | null;
+    source: string | null;
+    name: string | null;
+    derivedUrl: string | null;
+  } | null;
+  /** Present when the raw payload included `games`. */
+  games?: NormalizedGame[];
+  /**
+   * Derived, not an API field. For entrant1 then entrant2 (slot order; skip null
+   * slots), unique character names in first-appearance order across all games'
+   * selections for that entrantId. Entrants with no selections get an empty array.
+   * Present only when the raw payload included `games`.
+   */
+  derivedCharacters?: { entrantId: number; characters: string[] }[];
 }
 
 export interface NormalizedStream {
@@ -356,6 +387,61 @@ function orderSlots(slots: any[]): [any, any] {
   return [slots[0], slots[1]];
 }
 
+export function normalizeGame(raw: any): NormalizedGame | null {
+  if (!raw || raw.id == null) return null;
+  const selectionsRaw = Array.isArray(raw.selections) ? raw.selections : [];
+  const selections = selectionsRaw
+    .filter((sel: any) => {
+      if (!sel) return false;
+      const type = sel.selectionType;
+      return type === undefined || type === null || type === "CHARACTER";
+    })
+    .map((sel: any) => ({
+      entrantId: num(sel.entrant?.id),
+      character:
+        sel.character && sel.character.id != null
+          ? { id: sel.character.id, name: str(sel.character.name) }
+          : null,
+    }));
+  return {
+    id: raw.id,
+    orderNum: num(raw.orderNum),
+    stateRaw: num(raw.state),
+    winnerEntrantId: num(raw.winnerId),
+    score: {
+      entrant1: num(raw.entrant1Score),
+      entrant2: num(raw.entrant2Score),
+    },
+    stage:
+      raw.stage && raw.stage.id != null ? { id: raw.stage.id, name: str(raw.stage.name) } : null,
+    selections,
+  };
+}
+
+function derivedCharactersFromGames(
+  games: NormalizedGame[],
+  slot1: NormalizedSetSlot | null,
+  slot2: NormalizedSetSlot | null,
+): { entrantId: number; characters: string[] }[] {
+  const result: { entrantId: number; characters: string[] }[] = [];
+  for (const slot of [slot1, slot2]) {
+    if (slot?.entrantId == null) continue;
+    const characters: string[] = [];
+    const seen = new Set<string>();
+    for (const game of games) {
+      for (const selection of game.selections) {
+        if (selection.entrantId !== slot.entrantId) continue;
+        const name = selection.character?.name;
+        if (!name || seen.has(name)) continue;
+        seen.add(name);
+        characters.push(name);
+      }
+    }
+    result.push({ entrantId: slot.entrantId, characters });
+  }
+  return result;
+}
+
 export function normalizeSet(raw: any): NormalizedSet | null {
   if (!raw || raw.id == null) return null;
   const slots: any[] = Array.isArray(raw.slots) ? raw.slots : [];
@@ -363,6 +449,12 @@ export function normalizeSet(raw: any): NormalizedSet | null {
   const slot1 = normalizeSetSlot(rawSlot1);
   const slot2 = normalizeSetSlot(rawSlot2);
   const stateRaw = num(raw.state);
+  const games =
+    raw.games !== undefined
+      ? (Array.isArray(raw.games) ? raw.games : [])
+          .map(normalizeGame)
+          .filter((g: NormalizedGame | null): g is NormalizedGame => g !== null)
+      : undefined;
   return {
     id: raw.id,
     identifier: str(raw.identifier),
@@ -407,6 +499,24 @@ export function normalizeSet(raw: any): NormalizedSet | null {
                 }
               : null,
         }
+      : {}),
+    ...(raw.stream !== undefined
+      ? {
+          stream: raw.stream
+            ? {
+                id: num(raw.stream.id),
+                source: str(raw.stream.streamSource),
+                name: str(raw.stream.streamName),
+                derivedUrl: deriveStreamUrl(
+                  str(raw.stream.streamSource),
+                  str(raw.stream.streamName),
+                ),
+              }
+            : null,
+        }
+      : {}),
+    ...(games !== undefined
+      ? { games, derivedCharacters: derivedCharactersFromGames(games, slot1, slot2) }
       : {}),
   };
 }

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -6,6 +7,10 @@ import { StartggClient } from "../src/startgg/client.js";
 import { RateLimiter } from "../src/startgg/rate-limit.js";
 import { registerAllTools } from "../src/tools/index.js";
 import { FETCH_ALL_MAX_PAGES } from "../src/tools/shared.js";
+
+const setWithGames = JSON.parse(
+  readFileSync(new URL("./fixtures/set-with-games.json", import.meta.url), "utf8"),
+);
 
 const EXPECTED_TOOLS = [
   "search_videogames",
@@ -19,6 +24,7 @@ const EXPECTED_TOOLS = [
   "get_event_entrants",
   "get_event_standings",
   "get_event_sets",
+  "get_set_games",
   "get_player",
   "get_player_sets",
   "get_stream_queue",
@@ -383,5 +389,87 @@ describe("MCP tool surface", () => {
     });
     expect(result.isError).toBe(true);
     expect(parsePayload(result).error.code).toBe("NOT_FOUND");
+  });
+
+  it("get_set_games returns per-game details from GetSetGames", async () => {
+    const { connect, seen } = makeConnectedPair({
+      GetSetGames: { set: setWithGames.set },
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_set_games",
+      arguments: { setId: setWithGames.set.id },
+    });
+    expect(result.isError).toBeFalsy();
+    const payload = parsePayload(result);
+    expect(seen[0]).toMatchObject({
+      operationName: "GetSetGames",
+      variables: { id: setWithGames.set.id },
+    });
+    expect(payload.set.games).toHaveLength(4);
+  });
+
+  it("get_set_games rejects preview set ids without fetching", async () => {
+    const { connect, seen } = makeConnectedPair({});
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_set_games",
+      arguments: { setId: "preview_3430499_2_0" },
+    });
+    expect(result.isError).toBe(true);
+    expect(parsePayload(result).error.code).toBe("INVALID_INPUT");
+    expect(seen).toHaveLength(0);
+  });
+
+  it("get_set_games surfaces NOT_FOUND when the set is missing", async () => {
+    const { connect } = makeConnectedPair({ GetSetGames: { set: null } });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_set_games",
+      arguments: { setId: 999999 },
+    });
+    expect(result.isError).toBe(true);
+    expect(parsePayload(result).error.code).toBe("NOT_FOUND");
+  });
+
+  it("get_event_sets includeGames true clamps perPage and uses GetEventSetsWithGames", async () => {
+    const { connect, seen } = makeConnectedPair({
+      GetEventSetsWithGames: {
+        event: {
+          id: 1,
+          name: "Singles",
+          slug: "tournament/t/event/e",
+          sets: { pageInfo: { page: 1, perPage: 10, total: 0, totalPages: 0 }, nodes: [] },
+        },
+      },
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_event_sets",
+      arguments: { eventId: 1, includeGames: true, perPage: 30 },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(seen[0]!.operationName).toBe("GetEventSetsWithGames");
+    expect(seen[0]!.variables.perPage).toBe(10);
+  });
+
+  it("get_event_sets without includeGames uses GetEventSets", async () => {
+    const { connect, seen } = makeConnectedPair({
+      GetEventSets: {
+        event: {
+          id: 1,
+          name: "Singles",
+          slug: "tournament/t/event/e",
+          sets: { pageInfo: { page: 1, perPage: 20, total: 0, totalPages: 0 }, nodes: [] },
+        },
+      },
+    });
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_event_sets",
+      arguments: { eventId: 1 },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(seen[0]!.operationName).toBe("GetEventSets");
   });
 });

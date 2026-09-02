@@ -65,3 +65,32 @@ Built and verified against `@modelcontextprotocol/sdk` **1.x**
 (`registerTool(name, config, handler)` with a **raw Zod shape** — not
 `z.object(...)` — as `inputSchema`). The `@modelcontextprotocol/server`
 package (2.x alpha) is a different API surface; do not mix them.
+
+## Games, character selections, and streams
+
+Verified 2026-09-02 via live introspection and probe queries.
+
+- `Query.set(id: ID): Set` exists. Preview (unstarted) sets have string ids
+  like `preview_3430499_2_0` and are **not** fetchable this way.
+- `Set.games: [Game]`, `Set.stream: Streams`, `Set.setGamesType: Int`.
+- `Game { id: ID, orderNum: Int, state: Int, winnerId: Int, entrant1Score:
+Int, entrant2Score: Int, stage: Stage { id name }, selections:
+[GameSelection], images }`. `entrant1Score`/`entrant2Score` are frequently
+  null even on reported sets; `winnerId` is the reliable field.
+- `GameSelection { id, orderNum, selectionType: GameSelectionType (only
+value: CHARACTER), selectionValue: Int (= character id), entrant: Entrant
+{ id }, participant, character: Character { id name } }`.
+- `Streams { id, streamName, streamSource: StreamSource (TWITCH | YOUTUBE |
+...), ... }`.
+- Complexity: start.gg caps 1000 objects/request; a set with the existing
+  selection is ~26 objects, and nesting games (up to 5 games × ~8 objects)
+  makes `perPage` 10 the safe maximum (verified live).
+- Coverage (measured 2026-09-02): character/stage data exists only when the
+  set was reported with it. Late-round/streamed completed sets: **18/20**
+  had characters (both a 35-entrant weekly and Supernova 2025 with 2433
+  entrants). Round-1 pools sets at Supernova: **1/20** (8 of 20 were DQs).
+  So Top 8 style use works; whole-event character statistics do not.
+- `Query` root has no player/tag search (`player(id)` only); tag search
+  exists only inside a tournament/event via participants/entrants filters.
+- `tournament(slug:).events` can be null for old tournaments (observed:
+  genesis-9); treat as `[]`.

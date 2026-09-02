@@ -38,7 +38,7 @@ async function call(name, args) {
 
 // 1. tool listing
 const { tools } = await client.listTools();
-report("listTools", tools.length === 15, `${tools.length} tools`);
+report("listTools", tools.length === 16, `${tools.length} tools`);
 
 // 2. videogame search
 const vg = await call("search_videogames", { name: "Super Smash Bros. Ultimate" });
@@ -104,6 +104,27 @@ report(
     set0?.entrant1?.entrantId != null &&
     set0?.winnerEntrantId != null,
   `${set0?.round}: ${set0?.score?.displayScore}`,
+);
+
+const setGames = await call("get_set_games", { setId: set0.id });
+report(
+  "get_set_games",
+  !setGames.isError &&
+    Array.isArray(setGames.payload.set?.games) &&
+    Array.isArray(setGames.payload.set?.derivedCharacters),
+  `${setGames.payload.set?.games?.length} games, ${JSON.stringify(setGames.payload.set?.derivedCharacters?.[0]?.characters)}`,
+);
+
+const setsWithGames = await call("get_event_sets", {
+  eventId: resolved.payload.eventId,
+  state: ["COMPLETED"],
+  sortType: "RECENT",
+  perPage: 3,
+  includeGames: true,
+});
+report(
+  "get_event_sets includeGames",
+  !setsWithGames.isError && Array.isArray(setsWithGames.payload.sets?.[0]?.games),
 );
 
 // 8. standings top 8
