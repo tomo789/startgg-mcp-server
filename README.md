@@ -46,6 +46,20 @@ Treat the token like a password. This server reads it only from the
 
 ## Installation
 
+### From npm (recommended)
+
+```bash
+# run without installing
+npx startgg-mcp-server
+
+# or install globally
+npm install -g startgg-mcp-server
+```
+
+Requires `STARTGG_TOKEN` in the environment; MCP clients normally launch it for you (see the next section).
+
+### From source
+
 ```bash
 git clone https://github.com/tomo789/startgg-mcp-server.git
 cd startgg-mcp-server
@@ -56,6 +70,12 @@ npm run build
 ## MCP client setup
 
 ### Claude Code (CLI)
+
+```bash
+claude mcp add startgg --env STARTGG_TOKEN=YOUR_TOKEN -- npx -y startgg-mcp-server
+```
+
+Running from a source checkout instead:
 
 ```bash
 claude mcp add startgg --env STARTGG_TOKEN=YOUR_TOKEN -- node /path/to/startgg-mcp-server/dist/cli.js
@@ -69,8 +89,8 @@ Add to `claude_desktop_config.json`:
 {
   "mcpServers": {
     "startgg": {
-      "command": "node",
-      "args": ["/path/to/startgg-mcp-server/dist/cli.js"],
+      "command": "npx",
+      "args": ["-y", "startgg-mcp-server"],
       "env": {
         "STARTGG_TOKEN": "YOUR_TOKEN"
       }
@@ -78,6 +98,8 @@ Add to `claude_desktop_config.json`:
   }
 }
 ```
+
+From a source checkout, use `"command": "node"` and `"args": ["/path/to/startgg-mcp-server/dist/cli.js"]` instead.
 
 Any MCP client that supports stdio servers works the same way: run
 `node dist/cli.js` (or the `startgg-mcp-server` bin once installed via npm)
@@ -196,6 +218,9 @@ sets → upset candidates by seed difference) lives in
 The API endpoint is deliberately not configurable through the environment: the
 token is only ever sent to `api.start.gg`. When using the client as a library
 (tests, tooling), inject `apiUrl`/`fetchFn` via the `StartggClient` constructor.
+
+Out-of-range or non-numeric values for `STARTGG_RATE_LIMIT` / `STARTGG_TIMEOUT_MS`
+fall back to the default and log a warning on stderr.
 
 Without `STARTGG_TOKEN` the server still starts and lists tools, but every
 call returns a clear `AUTH_ERROR` explaining how to fix it.

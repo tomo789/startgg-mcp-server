@@ -131,6 +131,7 @@ export interface FetchAllPageInfo {
   total: number | null;
   totalPages: number | null;
   perPage: number;
+  /** Pages actually requested, including the final empty page used to detect the end. */
   fetchedPages: number;
   /** True when the safety cap stopped fetching before the last page. */
   truncated: boolean;
@@ -148,6 +149,7 @@ export async function fetchAllPages<TNode>(
   const nodes: TNode[] = [];
   let info: NormalizedPageInfo | undefined;
   let page = 1;
+  let stoppedAtCap = false;
   for (; page <= maxPages; page++) {
     const conn = await getPage(page);
     if (!conn) break;
@@ -168,6 +170,7 @@ export async function fetchAllPages<TNode>(
       };
     }
     if (batch.length === 0) break;
+    if (page === maxPages) stoppedAtCap = true;
   }
   const fetchedPages = Math.min(page, maxPages);
   const totalPages = info?.totalPages ?? null;
@@ -178,7 +181,7 @@ export async function fetchAllPages<TNode>(
       totalPages,
       perPage,
       fetchedPages,
-      truncated: totalPages !== null ? fetchedPages < totalPages : false,
+      truncated: totalPages !== null ? fetchedPages < totalPages : stoppedAtCap,
     },
   };
 }

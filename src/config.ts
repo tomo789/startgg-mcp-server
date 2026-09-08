@@ -8,17 +8,25 @@ export interface Config {
   cacheEnabled: boolean;
 }
 
+export type ConfigWarn = (message: string) => void;
+
 function readIntEnv(
   env: NodeJS.ProcessEnv,
   name: string,
   fallback: number,
   min: number,
   max: number,
+  warn: ConfigWarn,
 ): number {
   const raw = env[name];
   if (!raw) return fallback;
   const n = Number.parseInt(raw, 10);
-  if (!Number.isFinite(n) || n < min || n > max) return fallback;
+  if (!Number.isFinite(n) || n < min || n > max) {
+    warn(
+      `${name}="${raw}" is not an integer between ${min} and ${max}; using the default ${fallback}.`,
+    );
+    return fallback;
+  }
   return n;
 }
 
@@ -28,13 +36,16 @@ function readIntEnv(
  * environment: the token must only ever be sent to api.start.gg. Library
  * consumers can still inject `apiUrl`/`fetchFn` on StartggClient directly.
  */
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+export function loadConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  warn: ConfigWarn = () => {},
+): Config {
   const token = env.STARTGG_TOKEN?.trim() || undefined;
   return {
     token,
     enableWrites: env.STARTGG_ENABLE_WRITES === "true",
-    rateLimitPerMinute: readIntEnv(env, "STARTGG_RATE_LIMIT", 75, 1, 80),
-    timeoutMs: readIntEnv(env, "STARTGG_TIMEOUT_MS", 30_000, 1_000, 300_000),
+    rateLimitPerMinute: readIntEnv(env, "STARTGG_RATE_LIMIT", 75, 1, 80, warn),
+    timeoutMs: readIntEnv(env, "STARTGG_TIMEOUT_MS", 30_000, 1_000, 300_000, warn),
     cacheEnabled: env.STARTGG_CACHE !== "off",
   };
 }

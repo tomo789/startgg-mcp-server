@@ -119,6 +119,7 @@ export class StartggClient {
           { httpStatus: 429 },
         );
         lastError.details!.retryAfterMs = this.retryAfterMs(response);
+        discardBody(response);
         continue;
       }
 
@@ -128,6 +129,7 @@ export class StartggClient {
           `start.gg returned a server error (HTTP ${response.status}).`,
           { httpStatus: response.status },
         );
+        discardBody(response);
         continue;
       }
 
@@ -201,4 +203,9 @@ function networkError(err: unknown): StartggError {
         : err.message
       : "unknown error";
   return new StartggError("NETWORK_ERROR", `Could not reach start.gg: ${cause}`);
+}
+
+/** Release a response we will not read, so the socket returns to the pool. */
+function discardBody(response: Response): void {
+  void response.body?.cancel().catch(() => undefined);
 }
