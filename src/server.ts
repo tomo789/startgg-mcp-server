@@ -7,7 +7,7 @@ import { TtlCache } from "./startgg/cache.js";
 import { registerAllTools } from "./tools/index.js";
 
 export const SERVER_NAME = "startgg-mcp-server";
-export const SERVER_VERSION = "0.1.0";
+export const SERVER_VERSION = "0.2.0";
 
 /**
  * Library module: builds the MCP server. Side-effect free on import — the

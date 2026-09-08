@@ -44,6 +44,35 @@ describe("parseStartggUrl", () => {
     });
   });
 
+  it("accepts scheme-less known hosts", () => {
+    expect(parseStartggUrl("www.start.gg/tournament/genesis-9/event/ultimate-singles")).toEqual({
+      type: "event",
+      tournamentSlug: "genesis-9",
+      eventSlug: "ultimate-singles",
+    });
+    expect(parseStartggUrl("start.gg/tournament/genesis-9")).toEqual({
+      type: "tournament",
+      tournamentSlug: "genesis-9",
+    });
+  });
+
+  it("accepts event slugs without the tournament/ prefix", () => {
+    expect(parseStartggUrl("genesis-9/event/ultimate-singles")).toEqual({
+      type: "event",
+      tournamentSlug: "genesis-9",
+      eventSlug: "ultimate-singles",
+    });
+  });
+
+  it("rejects scheme-less unknown hosts with INVALID_INPUT", () => {
+    try {
+      parseStartggUrl("www.example.com/tournament/x");
+      expect.unreachable();
+    } catch (e) {
+      expect((e as StartggError).code).toBe("INVALID_INPUT");
+    }
+  });
+
   it("rejects non-start.gg hosts", () => {
     expect(() => parseStartggUrl("https://example.com/tournament/foo")).toThrowError(StartggError);
   });

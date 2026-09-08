@@ -36,7 +36,7 @@ describe.skipIf(!existsSync(CLI))("built CLI via symlink", () => {
       const client = new Client({ name: "cli-smoke", version: "0.0.0" });
       await client.connect(transport);
       const { tools } = await client.listTools();
-      expect(tools).toHaveLength(15);
+      expect(tools).toHaveLength(16);
       await client.close();
     } finally {
       rmSync(dir, { recursive: true, force: true });

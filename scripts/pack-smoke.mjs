@@ -10,7 +10,7 @@
  *
  * Verifies (1) the tarball ships everything the server needs at runtime and
  * (2) the installed bin (an npm symlink/shim, the exact path that broke in
- * issue #1) starts and answers listTools with 15 tools — no token required.
+ * issue #1) starts and answers listTools with 16 tools — no token required.
  */
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -59,7 +59,7 @@ const transport = new StdioClientTransport({
 const client = new Client({ name: "pack-smoke", version: "0.0.0" });
 await client.connect(transport);
 const { tools } = await client.listTools();
-report("bin serves listTools", tools.length === 15, `${tools.length} tools`);
+report("bin serves listTools", tools.length === 16, `${tools.length} tools`);
 await client.close();
 
 console.log(failures === 0 ? "\nPACK SMOKE OK" : `\nPACK SMOKE FAILED (${failures})`);

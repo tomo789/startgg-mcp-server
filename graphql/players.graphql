@@ -35,6 +35,11 @@ query GetPlayerSets($id: ID!, $page: Int, $perPage: Int, $filters: SetFilters) {
         displayScore
         totalGames
         vodUrl
+        stream {
+          id
+          streamSource
+          streamName
+        }
         event {
           id
           name
